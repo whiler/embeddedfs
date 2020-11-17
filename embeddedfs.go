@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -18,6 +19,7 @@ var (
 type FileSystem interface {
 	Open(name string) (http.File, error)
 	Stat(name string) (os.FileInfo, error)
+	Walk(root string, fn filepath.WalkFunc) error
 }
 
 type DefaultFileSystem struct{}
@@ -28,6 +30,10 @@ func (DefaultFileSystem) Open(name string) (http.File, error) {
 
 func (DefaultFileSystem) Stat(name string) (os.FileInfo, error) {
 	return os.Stat(name)
+}
+
+func (DefaultFileSystem) Walk(root string, fn filepath.WalkFunc) error {
+	return filepath.Walk(root, fn)
 }
 
 type EmbeddedFileSystem map[string]*EmbeddedFile
@@ -45,6 +51,32 @@ func (fs EmbeddedFileSystem) Stat(name string) (os.FileInfo, error) {
 		return nil, os.ErrNotExist
 	} else {
 		return basic.Info, nil
+	}
+}
+
+type node struct {
+	Path string
+	File *EmbeddedFile
+}
+
+func (fs EmbeddedFileSystem) Walk(root string, fn filepath.WalkFunc) (err error) {
+	if basic, exists := fs[root]; !exists {
+		return os.ErrNotExist
+	} else {
+		queue := []*node{&node{Path: root, File: basic}}
+		for size := len(queue); nil == err && 0 < size; size = len(queue) {
+			cur := queue[0]
+			queue = queue[1:]
+			for _, info := range cur.File.Children {
+				path := filepath.Join(cur.Path, info.Name())
+				if basic, exists = fs[path]; !exists {
+					continue
+				}
+				queue = append(queue, &node{Path: path, File: basic})
+			}
+			err = fn(cur.Path, cur.File.Info, err)
+		}
+		return err
 	}
 }
 
