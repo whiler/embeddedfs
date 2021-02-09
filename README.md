@@ -1,6 +1,9 @@
 # embeddedfs #
 Embed file system in the source code, and use the file system in memory.
 
+**the new “embed” package which allows you to embed a file contents as part of the Go application binary, in Go 1.16 Release.**
+please use "embed" to replace embeddedfs package.
+
 ## Install ##
 
 	go get -u github.com/whiler/embeddedfs
